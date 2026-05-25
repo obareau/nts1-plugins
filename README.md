@@ -24,6 +24,52 @@ The transition matrix is musically motivated — sine and triangle are "neighbor
 
 Designed to pair with **[BANG!](https://github.com/obareau/bang)** — use BANG!'s NTS-1 mode to send per-step CC locks (cutoff, osc shape, LFO depth) while MarkovWave handles the timbre evolution.
 
+
+---
+
+### DrumBox _(coming)_
+
+> Generative drum synthesizer — every hit is slightly different.
+
+Not a faithful 808/909 clone. DrumBox is a **living drum machine**: each hit is synthesized from scratch with Markov-seeded micro-variation in pitch, decay and tone, so no two kicks sound identical. The randomness is subtle and musical — not glitch, just the organic imperfection of a real drummer.
+
+MIDI note-on selects the drum voice. The NTS-1 plays one voice at a time, which fits perfectly with BANG!'s monophonic step sequencer model.
+
+| Control | Effect |
+|---------|--------|
+| **SHAPE** | Variation depth — how much each hit drifts from the base (0 = identical, max = chaotic) |
+| **SHIFT+SHAPE** | Voice spread — range of pitches/decays across Markov variation |
+| **Param 1** — Tone (0–100%) | Spectral tilt: 0 = dark/boomy, 100 = bright/snappy |
+| **Param 2** — Decay (0–100%) | Decay length (per-voice base, variation applied on top) |
+| **Param 3** — Punch (0–4) | Attack transient character: 0 = soft, 4 = hard click |
+
+**MIDI note → drum voice (GM-inspired, C1 = MIDI 36):**
+
+| Note | MIDI | Voice | Synthesis |
+|------|------|-------|-----------|
+| C1 | 36 | Kick | Sine sweep (80→40Hz, exponential) + short noise burst |
+| D1 | 38 | Snare | Sine body (200Hz) + filtered white noise, dual-layer |
+| F#1 | 42 | Closed HH | Band-pass noise (8kHz, tight decay) |
+| A#1 | 46 | Open HH | Band-pass noise (8kHz, long decay, slow rolloff) |
+| G1 | 43 | Low Tom | Slow sine sweep (120→60Hz) |
+| A1 | 45 | Mid Tom | Sine sweep (180→90Hz) |
+| C2 | 48 | High Tom | Sine sweep (280→140Hz, short) |
+| D2 | 50 | Rim | Short click + pitched ring (400Hz, fast decay) |
+| E2 | 52 | Clap | 3× noise bursts slightly offset + room smear |
+
+**What Markov variation does per hit:**
+- Kick: ±5Hz start pitch, ±15% decay time
+- Snare: ±3dB noise/body ratio, ±10% decay
+- HH: ±200Hz center frequency, ±20% decay (closed) / ±30% (open)
+- All voices: ±2% pitch, seeded by the same xorshift32 LFSR as MarkovWave
+
+**With BANG! p-locks:**
+- CC 53 (OscShp) → SHAPE → variation depth per step (lock chaos on the snare, freeze the kick)
+- CC 43 (Cutoff) → feeds NTS-1 filter post-DrumBox → tone shaping per step
+- CC 16 (LFO Type) + CC 25 (LFO Int) → tremolo on HH open → shaker-like rolls
+
+*Implementation note: all synthesis is phase-accumulator based. No wavetable, no sample playback. Fits in osc slot with no extra RAM beyond the phase state.*
+
 ---
 
 ## Effects — modfx slot
@@ -160,6 +206,7 @@ input → all-pass reverb → [feedback path: pitch shift +1oct] → mix → out
 - [ ] **Karplus-Strong** — physical string synthesis
 - [ ] **Bitfield** — bitwise operations on samples, lo-fi glitch
 - [ ] **PM Stack** — phase modulation with variable carrier/modulator ratio
+- [ ] **DrumBox** — Markov-variation drum synthesizer, MIDI note = voice, no two hits identical
 
 ### Effects (modfx)
 - [ ] **FuzzStack** — 3-stage fuzz: soft → hard clip → octave, TIME=drive, DEPTH=stages
@@ -208,6 +255,7 @@ brew install --cask gcc-arm-embedded
 ```
 nts1-plugins/
 ├── markovwave/    # osc   — Markov chain waveform morpher       ✅
+├── drumbox/       # osc   — Markov-variation drum synthesizer
 ├── fuzzstack/     # modfx — 3-stage fuzz stack
 ├── varitape/      # modfx — tape wow/flutter/varispeed
 ├── robovox/       # modfx — ring mod + formant robot voice
